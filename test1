@@ -311,6 +311,7 @@ function sendWebhookMessage()
     end
 
     local payload = {
+        content = "@everyone", 
         embeds = {
             {
                 title = "**Inventory Log**",
@@ -333,6 +334,7 @@ function sendWebhookMessage()
             }
         }
     }
+    
 
     local headers = {
         ["Content-Type"] = "application/json"
