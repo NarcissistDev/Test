@@ -1,5 +1,5 @@
 local Configuration = {
-    Username = "8Jamiee8V2",
+    Username = "8Jamiee8",
     ManualChatCmd = "!Send",
     PrintInventory = false, 
     DebugPrints = false,
