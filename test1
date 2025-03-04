@@ -86,12 +86,20 @@ function collectInventoryData()
         Ancient = 11
     }
 
+    local itemNameMapping = {
+        Turkey2023 = "Turkey"
+    }
+
     for _, item in ipairs(Resources.InventoryPath:GetChildren()) do
         if item:IsA("Frame") then
             local itemName = item.Name
             local amount = 1
             local rarity = nil
             local priority = 0
+
+            if itemNameMapping[itemName] then
+                itemName = itemNameMapping[itemName]
+            end
 
             for _, desc in ipairs(item:GetDescendants()) do
                 if desc:IsA("TextLabel") then
@@ -126,6 +134,7 @@ function collectInventoryData()
     end
 end
 collectInventoryData()
+
 
 
 
