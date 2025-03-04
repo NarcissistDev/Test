@@ -180,11 +180,8 @@ function tradeLoop(targetName)
             return a.Priority > b.Priority
         end)
 
-        print("Starting offer loop")
         for _, item in ipairs(Resources.itemData) do
-            print("Processing item: " .. item.Name)
             for j = 1, item.Amount do
-                print("Attempting to offer")
                 OfferItem(item.Name)
             end
         end
