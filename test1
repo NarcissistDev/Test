@@ -87,7 +87,7 @@ function collectInventoryData()
     }
 
     local itemNameMapping = {
-        Turkey2023 = "Turkey"
+        TestVal = "TestVal1"
     }
 
     for _, item in ipairs(Resources.InventoryPath:GetChildren()) do
